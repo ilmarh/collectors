@@ -6,7 +6,9 @@ import time
 from datetime import datetime, timedelta
 import SocketServer
 import ipfix.v9pdu
+import ipfix.v5pdu
 import ipfix.ie
+import ipfix.template
 from threading import Thread, Lock
 import Queue
 from correlator import netflowQueue
@@ -15,40 +17,13 @@ import collector_config
 ipfix.ie.use_iana_default()
 ipfix.ie.use_5103_default()
 
-"""
-netflows = []
-netflows_lock = Lock()
-debug_log = open("netflow.log", "w+")
-debug_log.write("Log started at {0}\n{1}\n".format(datetime.now(), '-'*150))
-"""
-
 msgcount = 0
 do_flush = True
 templates = {}
 accepted_tids = set()
 def dummy1(o,b) : pass
 
-"""
-TODO: flush all unsaved messages when exit thread
-def flushNetflow() :
-    while do_flush :
-        netflows_lock.acquire()
-        for flow in netflows :
-            flush_time = datetime.now()
-            if flush_time - flow['recieved_at'] < timedelta(seconds=15) : continue # flush only records, that are 15 seconds old
-            debug_log.write("Flow recieved from {0} at {1}\n".format(flow['source'], flow['recieved_at']))
-            debug_log.write("Flow recieved from {0} at {1}\n".format(flow['source'], flow['recieved_at']))
-            for key in flow['rec']:
-                 debug_log.write("  {0:30} => {1}\n".format(key, str(flow['rec'][key])))
-            debug_log.write("{0}\n".format('-'*150))
-            netflows.remove(flow)
-        netflows_lock.release()
-        os.fsync(debug_log.fileno())
-        time.sleep(1) # Sleep for 5 seconds
-    print("netflows len {0}".format(len(netflows)))
-"""
-
-class CollectorNetflowHandler(SocketServer.DatagramRequestHandler):
+class CollectorNetflow9Handler(SocketServer.DatagramRequestHandler):
     
     def handle(self):
         global msgcount, netflows
@@ -71,21 +46,36 @@ class CollectorNetflowHandler(SocketServer.DatagramRequestHandler):
         for rec in r.namedict_iterator():
             record = {}
             record['type'] = 'netflow9'
-            record['odid'] = now
+            record['odid'] = now # FIXME: This wrong
             record['recieved_at'] = now
             record['timestamp'] = datetime.fromtimestamp(r.export_epoch)
             record['source'] = str(self.client_address)
             record['rec'] = rec
-            #netflows_lock.acquire()
-            #netflows.append(record)
             netflowQueue.put(record)
-            #netflows_lock.release()
-            #debug_log.write("--- record {0} in message {1} from {2}---\n".format(reccount, msgcount, str(self.client_address)))
             reccount += 1
-            #for key in rec:
-            #     debug_log.write("  {0:30} => {1}\n".format(key, str(rec[key])))
-        #debug_log.write("reccount = {0}\n".format(str(reccount)))
-        #debug_log.write("{0}\n".format('-'*150))
+    
+    
+class CollectorNetflow5Handler(SocketServer.DatagramRequestHandler):
+    
+    def handle(self):
+        global msgcount, netflows
+        msgcount = msgcount + 1
+        reccount = 0
+        now = datetime.now()
+        
+        if collector_config.be_verbose : print("NETFLOW: connection from {0}".format(str(self.client_address)))
+        r = ipfix.v5pdu.from_stream(self.rfile)
+
+        for rec in r.namedict_iterator():
+            record = {}
+            record['type'] = 'netflow5'
+            record['odid'] = now # FIXME: This wrong
+            record['recieved_at'] = now
+            record['timestamp'] = datetime.fromtimestamp(r.export_epoch)
+            record['source'] = str(self.client_address)
+            record['rec'] = rec
+            netflowQueue.put(record)
+            reccount += 1
     
     
 def find_flow(src_ip,src_port,dst_ip,dst_port,ts) : 

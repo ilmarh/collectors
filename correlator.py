@@ -27,6 +27,7 @@ def flushNetflow() :
     while not flushnetflowQueue.empty() : # What if queue will always be not empty?
         flow = flushnetflowQueue.get()
         ndebug_log.write("Flow recieved from {0} at {1}\n".format(flow['source'], flow['recieved_at']))
+        #ndebug_log.write("Rec entry: {0}\n".format(flow['rec']))
         for key in flow['rec']:
              ndebug_log.write("  {0:30} => {1}\n".format(key, str(flow['rec'][key])))
         ndebug_log.write("{0}\n".format('-'*150))
@@ -87,7 +88,7 @@ def correlator() :
             sl_dump_t = Thread(target=flushSyslog, name="Syslog flusher")
             sl_dump_t.start()
 
-    if collector_config.be_verbose : print("Flushing remaining netflows({0}, syslog messages {1} and exit".format(len(netflows), len(messages)))
+    if collector_config.be_verbose : print("Flushing remaining netflows{0}, syslog messages {1} and exit".format(len(netflows), len(messages)))
     for flow in netflows : flushnetflowQueue.put(flow)
     for msg in messages : flushsyslogQueue.put(msg)
     if not nf_dump_t.isAlive() : flushNetflow() # direct flush call

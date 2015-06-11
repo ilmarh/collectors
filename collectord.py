@@ -22,16 +22,16 @@ if collector_config.be_verbose :
 configured_threads = []
 configured_sockets = []
  
-logging.basicConfig(level=logging.INFO, format='%(message)s', datefmt='', filename=collector_config.logfile, filemode='a')
+#logging.basicConfig(level=logging.INFO, format='%(message)s', datefmt='', filename=collector_config.logfile, filemode='a')
  
 try:
     for s in config['sections']:
         if config[s]['type']=='syslog' :
             handler = collectorsyslog.CollectorSyslogHandler
         elif config[s]['type']=='netflow9' :
-            handler = collectornetflow.CollectorNetflowHandler
+            handler = collectornetflow.CollectorNetflow9Handler
         elif config[s]['type']=='netflow5' :
-            handler = None # Need to fix that
+            handler = collectornetflow.CollectorNetflow5Handler
         elif config[s]['type']=='ipfix' :
             handler = None # Need to fix that
         else :
@@ -43,21 +43,6 @@ try:
         configured_threads.append(t)
 
 
-    """
-    serv_syslog = SocketServer.UDPServer((HOST,PORT_SYSLOG), collectorsyslog.CollectorSyslogHandler)
-    serv_netflow = SocketServer.UDPServer((HOST, PORT_NETFLOW), collectornetflow.CollectorNetflowHandler)
-    configured_sockets.append(serv_syslog)
-    configured_sockets.append(serv_netflow)
-
-    t_syslog = Thread(target=serv_syslog.serve_forever, name="Syslog listener")
-    t_netflow = Thread(target=serv_netflow.serve_forever, name="Netflow listener") #(poll_interval=0.5)
-    configured_threads.append(t_syslog)
-    configured_threads.append(t_netflow)
-    t_netflow_flush = Thread(target=collectornetflow.flushNetflow, name="Netflow Flusher")
-    t_syslog_flush = Thread(target=collectorsyslog.flushSyslog, name="Syslog Flusher")
-    configured_threads.append(t_netflow_flush)
-    configured_threads.append(t_syslog_flush)
-    """
     t = Thread(target=correlator.correlator, name="Correlator Flusher")
     configured_threads.append(t)
 
