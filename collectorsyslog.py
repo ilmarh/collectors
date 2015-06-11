@@ -10,6 +10,9 @@ from datetime import datetime, timedelta
 from logsparser.lognormalizer import LogNormalizer as LN
 from threading import Thread, Lock
 from collectornetflow import find_flow, print_flow
+import collector_config 
+import Queue
+from correlator import syslogQueue
 
 messages = []
 messages_lock = Lock()
@@ -23,7 +26,6 @@ normalizer = LN('/usr/local/share/logsparser/normalizers')
 
 """
 TODO: flush all unsaved messages when exit thread
-"""
 def flushSyslog() :
     while do_flush :
         messages_lock.acquire()
@@ -61,6 +63,7 @@ def flushSyslog() :
         os.fsync(debug_log.fileno())
         time.sleep(1) # Sleep for 5 seconds
     print("messages len {0}".format(len(messages)))
+"""
 
 def _parse_logdata(l, t='syslog', p=None) :
      log = {}
@@ -88,7 +91,7 @@ class CollectorSyslogHandler(SocketServer.DatagramRequestHandler):
 
         now = datetime.now()
         #debug_log.write("SYSLOG connection from {0}\n".format(str(self.client_address)))
-        print("SYSLOG connection from {0}".format(str(self.client_address)))
+        if collector_config.be_verbose : print("SYSLOG connection from {0}".format(str(self.client_address)))
         data = bytes.decode(self.request[0].strip())
         #socket = self.request[1]
         l = str(data)
@@ -107,9 +110,9 @@ class CollectorSyslogHandler(SocketServer.DatagramRequestHandler):
         msg['source'] = str(self.client_address)
         msg['msg'] = log
         msg['flow'] = None
-        messages_lock.acquire()
-        messages.append(msg)
-        messages_lock.release()
+        #messages_lock.acquire()
+        syslogQueue.put(msg)
+        #messages_lock.release()
 
 
 #	logging.info(str(data))

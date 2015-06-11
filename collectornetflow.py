@@ -8,14 +8,19 @@ import SocketServer
 import ipfix.v9pdu
 import ipfix.ie
 from threading import Thread, Lock
+import Queue
+from correlator import netflowQueue
+import collector_config 
 
 ipfix.ie.use_iana_default()
 ipfix.ie.use_5103_default()
 
+"""
 netflows = []
 netflows_lock = Lock()
 debug_log = open("netflow.log", "w+")
 debug_log.write("Log started at {0}\n{1}\n".format(datetime.now(), '-'*150))
+"""
 
 msgcount = 0
 do_flush = True
@@ -25,7 +30,6 @@ def dummy1(o,b) : pass
 
 """
 TODO: flush all unsaved messages when exit thread
-"""
 def flushNetflow() :
     while do_flush :
         netflows_lock.acquire()
@@ -42,6 +46,7 @@ def flushNetflow() :
         os.fsync(debug_log.fileno())
         time.sleep(1) # Sleep for 5 seconds
     print("netflows len {0}".format(len(netflows)))
+"""
 
 class CollectorNetflowHandler(SocketServer.DatagramRequestHandler):
     
@@ -52,7 +57,7 @@ class CollectorNetflowHandler(SocketServer.DatagramRequestHandler):
         now = datetime.now()
         
         #debug_log.write("NETFLOW: connection from {0}\n".format(str(self.client_address)))
-        print("NETFLOW: connection from {0}".format(str(self.client_address)))
+        if collector_config.be_verbose : print("NETFLOW: connection from {0}".format(str(self.client_address)))
         r = ipfix.v9pdu.from_stream(self.rfile)
         try:
             r.templates = templates[str(self.client_address)]
@@ -65,20 +70,22 @@ class CollectorNetflowHandler(SocketServer.DatagramRequestHandler):
 
         for rec in r.namedict_iterator():
             record = {}
+            record['type'] = 'netflow9'
             record['odid'] = now
             record['recieved_at'] = now
-            record['timestamp'] = datetime.fromtimestamp(rec.export_epoch)
+            record['timestamp'] = datetime.fromtimestamp(r.export_epoch)
             record['source'] = str(self.client_address)
             record['rec'] = rec
-            netflows_lock.acquire()
-            netflows.append(record)
-            netflows_lock.release()
+            #netflows_lock.acquire()
+            #netflows.append(record)
+            netflowQueue.put(record)
+            #netflows_lock.release()
             #debug_log.write("--- record {0} in message {1} from {2}---\n".format(reccount, msgcount, str(self.client_address)))
             reccount += 1
             #for key in rec:
             #     debug_log.write("  {0:30} => {1}\n".format(key, str(rec[key])))
         #debug_log.write("reccount = {0}\n".format(str(reccount)))
-        debug_log.write("{0}\n".format('-'*150))
+        #debug_log.write("{0}\n".format('-'*150))
     
     
 def find_flow(src_ip,src_port,dst_ip,dst_port,ts) : 

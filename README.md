@@ -7,8 +7,23 @@ and normalizer library pylogsparcer (https://github.com/wallix/pylogsparser).
 
 Netflow v5 is not supported yet.
 
-To run collector, set HOST, PORT_SYSLOG and PORT_NETFLOW vars and enter
-something like python collectord.py on the command prompt
+To run collector, edit collectord.conf file to suit our needs and run
+something like python collectord.py on the command prompt, passing the
+following comandline arguments:
+  -c <filename> -- config file name with path
+                   (default is /usr/local/etc/collectd.conf)
+  -l <filename> -- log file name with path (default is /var/log/collectd.log)
+  -v -- switch on some verbose output
+  -d -- run in daemon mode (detached from terminal)
+
+Example:
+
+  ./collectord.py -c collectord.conf -v -l youlogfile.log
+
+
+Config file consists of sections, that specify collector ID. You need to fill
+bind address and port and specify collector type (netflow5, netflow9, ipfix,
+syslog). Note, that netflow5 and ipfix types are not supported yet.
 
 Right now it just saves captured messages and flows to netflow.log and 
 syslog.log files
